@@ -15,21 +15,7 @@ import (
 	"golang.org/x/net/http2"
 )
 
-func makeH2Request(url string, headerMap map[string]string, timeout int, skipVerify bool) error {
-	// Create transport
-	tr := &http2.Transport{}
-
-	// Add TLS config if skipping verification
-	if skipVerify {
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
-
-	if strings.HasPrefix(url, "http://") {
-		tr.DialTLSContext = func(ctx context.Context, netw, addr string, cfg *tls.Config) (net.Conn, error) {
-			return net.Dial(netw, addr)
-		}
-		tr.AllowHTTP = true
-	}
+func makeH2Request(url string, headerMap map[string]string, timeout int, tr http.RoundTripper) error {
 
 	// Create client with timeout and transport
 	client := http.Client{
@@ -85,21 +71,39 @@ func makeH2Request(url string, headerMap map[string]string, timeout int, skipVer
 	m["body"] = string(body)
 
 	// Encode as JSON and print
-	json, err := json.Marshal(m)
+	jsonResponse, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(json))
+	fmt.Println(string(jsonResponse))
 
 	return nil
+}
+
+func makeHttp2Transport(url string, skipVerify bool) http.RoundTripper {
+	tr := &http2.Transport{}
+
+	if strings.HasPrefix(url, "http://") {
+		tr.DialTLSContext = func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+			return net.Dial(network, addr)
+		}
+		tr.AllowHTTP = true
+	}
+
+	// Add TLS config if skipping verification
+	if skipVerify {
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	return tr
 }
 
 func main() {
 	// Note: try set GODEBUG=http2debug=1 if you are debugging this go program
 	url := flag.String("url", "", "URL to make request to")
-	skipVerify := flag.Bool("skip-verify", false, "Skip TLS verification")
+	skipVerify := flag.Bool("skip-verify", false, "Skip TLS verification (http2 only)")
 	timeout := flag.Int("timeout", 5, "Timeout in seconds")
 	headersFlag := flag.String("headers", "", "Headers to set, comma separated")
+	http1Flag := flag.Bool("http1", false, "Use HTTP/1.[01] protocol")
 	flag.Parse()
 
 	// Create headers map
@@ -113,8 +117,15 @@ func main() {
 		}
 	}
 
+	var tr http.RoundTripper
+	if *http1Flag {
+		tr = &http.Transport{}
+	} else {
+		tr = makeHttp2Transport(*url, *skipVerify)
+	}
+
 	// Make request
-	err := makeH2Request(*url, headerMap, *timeout, *skipVerify)
+	err := makeH2Request(*url, headerMap, *timeout, tr)
 	if err != nil {
 		panic(err)
 	}
