@@ -48,6 +48,8 @@ func makeH2Request(url string, headerMap map[string]string, timeout int, skipVer
 			req.Method = value
 		} else if strings.ToLower(key) == "authority" {
 			req.Host = value
+		} else if strings.ToLower(key) == "path" {
+			req.URL.Path = value
 		} else {
 			req.Header.Set(key, value)
 		}
