@@ -9,13 +9,17 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"golang.org/x/net/http2"
 )
 
-func makeH2Request(url string, headerMap map[string]string, timeout int, tr http.RoundTripper) error {
+func makeH2Request(
+	method string, url string,
+	headerMap map[string]string, requestBody io.Reader,
+	timeout int, tr http.RoundTripper) error {
 
 	// Create client with timeout and transport
 	client := http.Client{
@@ -23,7 +27,7 @@ func makeH2Request(url string, headerMap map[string]string, timeout int, tr http
 		Transport: tr,
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(method, url, requestBody)
 	if err != nil {
 		return err
 	}
@@ -63,12 +67,12 @@ func makeH2Request(url string, headerMap map[string]string, timeout int, tr http
 	m["headers"] = headers
 
 	// Add body to map
-	body, err := io.ReadAll(resp.Body)
+	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 
-	m["body"] = string(body)
+	m["body"] = string(responseBody)
 
 	// Encode as JSON and print
 	jsonResponse, err := json.Marshal(m)
@@ -104,6 +108,7 @@ func main() {
 	timeout := flag.Int("timeout", 5, "Timeout in seconds")
 	headersFlag := flag.String("headers", "", "Headers to set, comma separated")
 	http1Flag := flag.Bool("http1", false, "Use HTTP/1.[01] protocol")
+	postFlag := flag.Bool("post", false, "Use POST, body is read from standard input")
 	flag.Parse()
 
 	// Create headers map
@@ -124,8 +129,17 @@ func main() {
 		tr = makeHttp2Transport(*url, *skipVerify)
 	}
 
+	var method string
+	var body io.Reader
+	if *postFlag {
+		method = "POST"
+		body = os.Stdin
+	} else {
+		method = "GET"
+	}
+
 	// Make request
-	err := makeH2Request(*url, headerMap, *timeout, tr)
+	err := makeH2Request(method, *url, headerMap, body, *timeout, tr)
 	if err != nil {
 		panic(err)
 	}
