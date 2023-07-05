@@ -84,8 +84,8 @@ func makeH2Request(
 	return nil
 }
 
-func makeHttp2Transport(url string, skipVerify bool) http.RoundTripper {
-	tr := &http2.Transport{}
+func makeHttp2Transport(url string, tlsClientConfig *tls.Config) http.RoundTripper {
+	tr := &http2.Transport{TLSClientConfig: tlsClientConfig}
 
 	if strings.HasPrefix(url, "http://") {
 		tr.DialTLSContext = func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
@@ -94,17 +94,13 @@ func makeHttp2Transport(url string, skipVerify bool) http.RoundTripper {
 		tr.AllowHTTP = true
 	}
 
-	// Add TLS config if skipping verification
-	if skipVerify {
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
 	return tr
 }
 
 func main() {
 	// Note: try set GODEBUG=http2debug=1 if you are debugging this go program
 	url := flag.String("url", "", "URL to make request to")
-	skipVerify := flag.Bool("skip-verify", false, "Skip TLS verification (http2 only)")
+	skipVerify := flag.Bool("skip-verify", false, "Skip TLS verification")
 	timeout := flag.Int("timeout", 5, "Timeout in seconds")
 	headersFlag := flag.String("headers", "", "Headers to set, comma separated")
 	http1Flag := flag.Bool("http1", false, "Use HTTP/1.[01] protocol")
@@ -122,11 +118,18 @@ func main() {
 		}
 	}
 
+	var tlsClientConfig tls.Config
+
+	// Add TLS config if skipping verification
+	if *skipVerify {
+		tlsClientConfig.InsecureSkipVerify = true
+	}
+
 	var tr http.RoundTripper
 	if *http1Flag {
-		tr = &http.Transport{}
+		tr = &http.Transport{TLSClientConfig: &tlsClientConfig}
 	} else {
-		tr = makeHttp2Transport(*url, *skipVerify)
+		tr = makeHttp2Transport(*url, &tlsClientConfig)
 	}
 
 	var method string
