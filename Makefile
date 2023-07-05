@@ -24,7 +24,7 @@ test-coverage: ## Run tests with coverage
 	cat cover.out >> coverage.txt
 
 build: dep ## Build the binary file
-	go build -o build/main $(PKG)
+	go build -o build/h2client $(PKG)
 
 clean: ## Remove previous build
 	rm -fr ./build
