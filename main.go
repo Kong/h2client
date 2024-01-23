@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -12,7 +13,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"bytes"
 
 	"golang.org/x/net/http2"
 )
@@ -27,12 +27,20 @@ func makeH2Request(
 		Timeout:   time.Duration(timeout) * time.Second,
 		Transport: tr,
 	}
-        // convert the buffer to a interface that supports `.Len()` so that Content-Length header is added
-	b, err := io.ReadAll(requestBody)
-	if err != nil {
-		return err
+
+	var reqBody *bytes.Buffer
+
+	if requestBody == nil {
+		reqBody = new(bytes.Buffer)
+	} else {
+		// convert the buffer to a interface that supports `.Len()` so that Content-Length header is added
+		b, err := io.ReadAll(requestBody)
+		if err != nil {
+			return err
+		}
+		reqBody = bytes.NewBuffer(b)
 	}
-	reqBody := bytes.NewBuffer(b)
+
 	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
 		return err
@@ -142,7 +150,15 @@ func main() {
 	var body io.Reader
 	if *postFlag {
 		method = "POST"
-		body = os.Stdin
+		stdin := os.Stdin
+		fi, err := stdin.Stat()
+		if err != nil {
+			panic(err)
+		}
+		size := fi.Size()
+		if size > 0 {
+			body = stdin
+		}
 	} else {
 		method = "GET"
 	}
