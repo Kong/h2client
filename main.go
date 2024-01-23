@@ -27,6 +27,7 @@ func makeH2Request(
 		Timeout:   time.Duration(timeout) * time.Second,
 		Transport: tr,
 	}
+        // convert the buffer to a interface that supports `.Len()` so that Content-Length header is added
 	b, err := io.ReadAll(requestBody)
 	if err != nil {
 		return err
