@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"bytes"
 
 	"golang.org/x/net/http2"
 )
@@ -26,8 +27,13 @@ func makeH2Request(
 		Timeout:   time.Duration(timeout) * time.Second,
 		Transport: tr,
 	}
-
-	req, err := http.NewRequest(method, url, requestBody)
+        // convert the buffer to a interface that supports `.Len()` so that Content-Length header is added
+	b, err := io.ReadAll(requestBody)
+	if err != nil {
+		return err
+	}
+	reqBody := bytes.NewBuffer(b)
+	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
 		return err
 	}
