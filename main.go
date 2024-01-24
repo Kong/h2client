@@ -150,15 +150,7 @@ func main() {
 	var body io.Reader
 	if *postFlag {
 		method = "POST"
-		stdin := os.Stdin
-		fi, err := stdin.Stat()
-		if err != nil {
-			panic(err)
-		}
-		size := fi.Size()
-		if size > 0 {
-			body = stdin
-		}
+		body = os.Stdin
 	} else {
 		method = "GET"
 	}
