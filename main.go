@@ -20,7 +20,7 @@ import (
 func makeH2Request(
 	method string, url string,
 	headerMap map[string]string, requestBody io.Reader,
-	timeout int, tr http.RoundTripper) error {
+	timeout int, tr http.RoundTripper, stremMode bool) error {
 
 	// Create client with timeout and transport
 	client := http.Client{
@@ -30,7 +30,7 @@ func makeH2Request(
 
 	var reqBody *bytes.Buffer
 
-	if requestBody == nil {
+	if requestBody == nil || stremMode {
 		reqBody = new(bytes.Buffer)
 	} else {
 		// convert the buffer to a interface that supports `.Len()` so that Content-Length header is added
@@ -119,6 +119,7 @@ func main() {
 	headersFlag := flag.String("headers", "", "Headers to set, comma separated")
 	http1Flag := flag.Bool("http1", false, "Use HTTP/1.[01] protocol")
 	postFlag := flag.Bool("post", false, "Use POST, body is read from standard input")
+	streamMode := flag.Bool("stream", false, "Use stream mode in HTTP2 transport, which means the request has no 'Content-Length' header")
 	flag.Parse()
 
 	// Create headers map
@@ -150,21 +151,13 @@ func main() {
 	var body io.Reader
 	if *postFlag {
 		method = "POST"
-		stdin := os.Stdin
-		fi, err := stdin.Stat()
-		if err != nil {
-			panic(err)
-		}
-		size := fi.Size()
-		if size > 0 {
-			body = stdin
-		}
+		body = os.Stdin
 	} else {
 		method = "GET"
 	}
 
 	// Make request
-	err := makeH2Request(method, *url, headerMap, body, *timeout, tr)
+	err := makeH2Request(method, *url, headerMap, body, *timeout, tr, *streamMode)
 	if err != nil {
 		panic(err)
 	}
