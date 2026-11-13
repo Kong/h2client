@@ -2,19 +2,15 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-
-	"golang.org/x/net/http2"
 )
 
 func makeH2Request(
@@ -99,16 +95,19 @@ func makeH2Request(
 }
 
 func makeHttp2Transport(url string, tlsClientConfig *tls.Config) http.RoundTripper {
-	tr := &http2.Transport{TLSClientConfig: tlsClientConfig}
-
+	// Only enable HTTP/2: over TLS (negotiated via ALPN) for https:// URLs,
+	// and h2c with prior knowledge for http:// URLs.
+	var protocols http.Protocols
 	if strings.HasPrefix(url, "http://") {
-		tr.DialTLSContext = func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-			return net.Dial(network, addr)
-		}
-		tr.AllowHTTP = true
+		protocols.SetUnencryptedHTTP2(true)
+	} else {
+		protocols.SetHTTP2(true)
 	}
 
-	return tr
+	return &http.Transport{
+		TLSClientConfig: tlsClientConfig,
+		Protocols:       &protocols,
+	}
 }
 
 func main() {
