@@ -1,7 +1,5 @@
 module github.com/Kong/h2client
 
-go 1.20
+go 1.27.0
 
-require golang.org/x/net v0.11.0
-
-require golang.org/x/text v0.10.0 // indirect
+toolchain go1.27.4
